@@ -362,14 +362,14 @@ def matched_filter(filterfile=None, datafile=None, mu_RA=0., mu_DEC=0., src_dist
             x_axis = response_chans
 
         elif mode=='frequency':
-            response_freqs = (np.squeeze(data.freqs[nchan_kernel/2:-nchan_kernel/2+1]) + data_delfreq/2.0)/1.e6
+            response_freqs = (np.squeeze(data.freqs[int(nchan_kernel/2):int(-nchan_kernel/2+1)]) + data_delfreq/2.0)/1.e6
             x_axis = response_freqs
 
         else:
             if not restfreq:
                 restfreq = np.mean(data.freqs)/1.e6
 
-            response_freqs = (np.squeeze(data.freqs[nchan_kernel/2:-nchan_kernel/2+1]) + data_delfreq/2.0)/1.e6
+            response_freqs = (np.squeeze(data.freqs[int(nchan_kernel/2):int(-nchan_kernel/2+1)]) + data_delfreq/2.0)/1.e6
             response_vels = (restfreq - response_freqs)/restfreq*c_kms
             x_axis = response_vels
 
