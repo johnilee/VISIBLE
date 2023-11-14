@@ -7,6 +7,31 @@ from scipy import sparse
 import time
 import math
 
+
+def get_data_delfreq(data):
+    freq_diff = np.diff(np.squeeze(data.freqs))
+    assert np.allclose(freq_diff[0],freq_diff,atol=0,rtol=1e-6),\
+                             'data frequency channels are not equally spaced'
+    return freq_diff[0]
+
+def construct_output_xaxis(data,xc,nchan_kernel,data_delfreq,mode,restfreq):
+    #define channels such that first channel is 1:
+    response_chans = np.arange(xc.shape[0]) + nchan_kernel/2 + 0.5
+    response_freqs = data.freqs[0] + (response_chans-1)*data_delfreq
+    response_freqs /= 1e6
+    if mode=='channel':
+        return response_chans
+    elif mode=='frequency':
+        return response_freqs
+    elif mode=='velocity':
+        if not restfreq:
+            restfreq = np.mean(data.freqs)/1.e6
+        response_vels = (restfreq - response_freqs)/restfreq*c_kms
+        return response_vels
+    else:
+        raise ValueError(f'invalid mode {mode}')
+
+
 def matched_filter(filterfile=None, datafile=None, mu_RA=0., mu_DEC=0., src_distance=None, interpolate=True, weights='renormalize', norm_chans=None, window_func='Hanning', binfactor=2, outfile=None, mode='channel', restfreq=None, plot=False, verbose=False):
     """The matched_filter() method in VISIBLE allows you to apply an approximated matched filter to interferometric spectral line data and extract a signal. 
 
@@ -215,7 +240,7 @@ def matched_filter(filterfile=None, datafile=None, mu_RA=0., mu_DEC=0., src_dist
             print("Read filter image: " + filterfile)
             print("Filter read time = " + str(t1-t0))
 
-
+        data_delfreq = get_data_delfreq(data=data)
 
         ##############################
         #   Interpolate the filter   #
@@ -235,7 +260,6 @@ def matched_filter(filterfile=None, datafile=None, mu_RA=0., mu_DEC=0., src_dist
                 print("WARNING: Detected multiple spws in the data. Proceeding with assumption that all data share same frequency range. Do not trust results unless this is confirmed")
                 data.freqs = data.freqs[:,0]
             data_rfreq = np.mean(data.freqs)
-            data_delfreq = data.freqs[1] - data.freqs[0]
 
             if data_delfreq < 0:
                 if filter_delfreq > 0:
@@ -357,24 +381,9 @@ def matched_filter(filterfile=None, datafile=None, mu_RA=0., mu_DEC=0., src_dist
         #   Calculate output x-axis   #
         ###############################
 
-        if mode=='channel':
-            response_chans = np.arange(xc.shape[0]) + nchan_kernel/2 + 0.5
-            x_axis = response_chans
-
-        elif mode=='frequency':
-            response_freqs = (np.squeeze(data.freqs[int(nchan_kernel/2):int(-nchan_kernel/2+1)]) + data_delfreq/2.0)/1.e6
-            x_axis = response_freqs
-
-        else:
-            if not restfreq:
-                restfreq = np.mean(data.freqs)/1.e6
-
-            response_freqs = (np.squeeze(data.freqs[int(nchan_kernel/2):int(-nchan_kernel/2+1)]) + data_delfreq/2.0)/1.e6
-            response_vels = (restfreq - response_freqs)/restfreq*c_kms
-            x_axis = response_vels
-
-
-
+        x_axis = construct_output_xaxis(data=data,xc=xc,nchan_kernel=nchan_kernel,
+                                        data_delfreq=data_delfreq,mode=mode,
+                                        restfreq=restfreq)
 
         ############################
         #   Plot filter response   #
@@ -486,7 +495,7 @@ def matched_filter(filterfile=None, datafile=None, mu_RA=0., mu_DEC=0., src_dist
                 print("Read filter image: " + curr_filterfile)
                 print("Filter read time = " + str(t1-t0))
 
-
+            data_delfreq = get_data_delfreq(data=data)
 
             ##############################
             #   Interpolate the filter   #
@@ -503,7 +512,6 @@ def matched_filter(filterfile=None, datafile=None, mu_RA=0., mu_DEC=0., src_dist
                 filter_delfreq = filter_img.freqs[1] - filter_img.freqs[0]
 
                 data_rfreq = np.mean(data.freqs)
-                data_delfreq = data.freqs[1] - data.freqs[0]
 
                 if data_delfreq < 0:
                     if filter_delfreq > 0:
@@ -626,23 +634,10 @@ def matched_filter(filterfile=None, datafile=None, mu_RA=0., mu_DEC=0., src_dist
             ###############################
             #   Calculate output x-axis   #
             ###############################
-
-            if mode=='channel':
-                response_chans = np.arange(curr_xc.shape[0]) + nchan_kernel/2 + 0.5
-                curr_x_axis = response_chans
-
-            elif mode=='frequency':
-                response_freqs = (np.squeeze(data.freqs[int(nchan_kernel/2+1):int(-nchan_kernel/2+1)]) + data_delfreq/2.0)/1.e6
-                curr_x_axis = response_freqs
-
-            else:
-                if not restfreq:
-                    restfreq = np.mean(data.freqs)/1.e6
-                response_freqs = (np.squeeze(data.freqs[int(nchan_kernel/2+1):int(-nchan_kernel/2+1)]) + data_delfreq/2.0)/1.e6
-                response_vels = (restfreq - response_freqs)/restfreq*c_kms
-                curr_x_axis = response_vels
-
-
+            curr_x_axis = construct_output_xaxis(
+                                    data=data,xc=curr_xc,nchan_kernel=nchan_kernel,
+                                    data_delfreq=data_delfreq,mode=mode,
+                                    restfreq=restfreq)
 
 
             ############################
